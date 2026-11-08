@@ -647,38 +647,6 @@ Stated plainly rather than left for a marker to find:
 | [`evidence/evidence_part3/static-analysis/`](evidence/evidence_part3/static-analysis/) | ESLint and `npm audit` results, the baseline findings, and an explanation of every fix |
 | `api/tests/reports/` | Newman HTML reports for the main and rate-limiting suites |
 
-### Screenshots
-
-**Postman and Newman**
-
-| Collection | Collection run results |
-|---|---|
-| ![Postman collection](./evidence/evidence_part2/postman-collection.png) | ![Postman run results](./evidence/evidence_part2/postman-run-results.png) |
-
-| Test run (CLI) | HTML report |
-|---|---|
-| ![Newman results](./evidence/evidence_part2/newman-results.png) | ![Newman report](./evidence/evidence_part2/newman-report.png) |
-| **Rate limiting (429)** | **Rate limiting HTML report** |
-| ![Rate limit](./evidence/evidence_part2/newman-ratelimit.png) | ![Rate limit report](./evidence/evidence_part2/newman-ratelimit-report.png) |
-
-**Frontend tests (Vitest)**
-
-![Vitest](./evidence/evidence_part2/vitest-results.png)
-
-**Application**
-
-| Register | Login | Browse gigs |
-|---|---|---|
-| ![Register](./evidence/evidence_part2/register.png) | ![Login](./evidence/evidence_part2/login.png) | ![Browse gigs](./evidence/evidence_part2/browse-gigs.png) |
-
-| Create gig | Booking (simulated payment) | Booking confirmed |
-|---|---|---|
-| ![Create gig](./evidence/evidence_part2/create-gig.png) | ![Booking](./evidence/evidence_part2/purchse-booking.png) | ![Booking confirmed](./evidence/evidence_part2/booking-confirmed.png) |
-
-| Client bookings | Freelancer dashboard | Access denied (RBAC) |
-|---|---|---|
-| ![Client bookings](./evidence/evidence_part2/client-bookings.png) | ![Dashboard](./evidence/evidence_part2/freelancer-dashboard.png) | ![Access denied](./evidence/evidence_part2/access-denied.png) |
-
 ### Demonstration video
 
 [Watch the demonstration video](https://youtu.be/3Hc0sNXJRpc)
