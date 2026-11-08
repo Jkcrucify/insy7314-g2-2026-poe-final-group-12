@@ -1,0 +1,37 @@
+End-to-end verification of the tax feature against the Docker stack
+Run on 2026-11-04 18:17 UTC
+
+1. Register a freelancer and a client
+   freelancer: taxf11179@test.com    client: taxc11179@test.com    password: Str0ng!Pass
+2. Create a R50 000 gig as the freelancer
+   gig id: 6aeb76d7903a5081aaf933a6
+3. Book it three times as the client (R150 000 of income)
+   booking 1 -> transaction HH-MW2FWBIU-5AC62856
+   booking 2 -> transaction HH-MW2FWBQY-795A014F
+   booking 3 -> transaction HH-MW2FWBZ5-F819D7AF
+4. Read the income and tax summary
+   tax year        : 2026/2027
+   income (year)   : R150 000.00
+   taxable income  : R150 000.00
+   gross tax       : R27 000.00
+   less rebate     : R17 235.00
+   TAX PAYABLE     : R9 765.00
+   take-home       : R140 235.00
+   effective rate  : 6.51%   marginal: 18%
+   provisional x2  : R4 882.50
+   months returned : 12  (non-zero: 1)
+   top gig         : Brand identity package R150 000.00 x3
+
+   CHECK PASSED: R150 000 x 18% = R27 000, less the R17 235 rebate = R9 765
+
+5. Expenses of R60 000 should lower the bill
+   taxable R90 000.00 -> tax payable R0.00
+
+6. A client must not be able to read freelancer income
+   GET /transactions/income as Client -> 403
+
+7. Logout revokes the token
+   logout -> 200
+   reuse the same token -> 401
+
+ALL END-TO-END CHECKS COMPLETE
