@@ -42,6 +42,12 @@ centrally rather than only inside a container. The queries used, the labelling a
 redaction decisions, and screenshots of the live stream are in
 [`cloud-logging/README.md`](cloud-logging/README.md).
 
+## `cicd/`
+
+| File | What it shows |
+|---|---|
+| `ci-pipeline-success.png` | A GitHub Actions run of `ci.yml` on `main` with every job green: backend lint, audit and tests; frontend lint, tests and build; and the Docker stack built, started and exercised by the API suite. The Vitest job summary reports 11 test files and 57 tests passing |
+
 ## `static-analysis/`
 
 ESLint and `npm audit` results for both projects, the baseline findings from before
