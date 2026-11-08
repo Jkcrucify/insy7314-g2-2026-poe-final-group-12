@@ -368,6 +368,11 @@ Files rotate at 5 MB and the last five are kept. In Docker they live on the `api
 
 Setting `LOKI_HOST`, `LOKI_USER` and `LOKI_TOKEN` adds a **Grafana Cloud Loki** transport. The same redacted JSON is batched every five seconds and shipped for central search, dashboards and alerting across containers. A Loki outage can never break the API: connection errors are reported locally and the file transports carry on. The queries used, the labelling decisions and screenshots of the live stream are in [`evidence/evidence_part3/cloud-logging/`](evidence/evidence_part3/cloud-logging/README.md).
 
+| Every event | The security trail | The business trail |
+|---|---|---|
+| ![Loki, all events](./evidence/evidence_part3/cloud-logging/loki-all-events.png) | ![Loki, security events](./evidence/evidence_part3/cloud-logging/loki-security-events.png) | ![Loki, app events](./evidence/evidence_part3/cloud-logging/loki-app-events.png) |
+| `{app="hustlehub"}` | `\| json \| category="security"` | `\| json \| category="app"` |
+
 Logs captured from a real container run are in [`evidence/evidence_part3/logs/`](evidence/evidence_part3/logs/) and cover sixteen distinct security event types.
 
 ---
@@ -522,6 +527,12 @@ Runs independently on every push and pull request, and weekly on a schedule so n
 | Security header verification on the live containers | Job 3 |
 | Brute-force rate-limit verification | Job 3 |
 
+### A successful run
+
+![CI/CD pipeline run](./evidence/evidence_part3/cicd/ci-pipeline-success.png)
+
+All three jobs green on `main`: the backend lint, audit and Jest suites; the frontend lint, Vitest suite and production build; and the Docker stack built, started and exercised by the Newman API suite against the live containers.
+
 ---
 
 ## Docker
@@ -645,9 +656,11 @@ Stated plainly rather than left for a marker to find:
 | [`evidence/evidence_part2/`](evidence/evidence_part2/) | Application flow, Postman and Newman runs, Vitest results, RBAC denial |
 | [`evidence/evidence_part3/logs/`](evidence/evidence_part3/logs/) | `app.log`, `security.log` and container logs captured from a live Docker run, plus `docker compose ps` |
 | [`evidence/evidence_part3/static-analysis/`](evidence/evidence_part3/static-analysis/) | ESLint and `npm audit` results, the baseline findings, and an explanation of every fix |
+| [`evidence/evidence_part3/cloud-logging/`](evidence/evidence_part3/cloud-logging/) | Grafana Cloud Loki queries and screenshots of the live log stream |
+| [`evidence/evidence_part3/cicd/`](evidence/evidence_part3/cicd/) | A successful GitHub Actions pipeline run, all jobs green |
 | `api/tests/reports/` | Newman HTML reports for the main and rate-limiting suites |
 
 ### Demonstration video
 
-[Watch the demonstration video]((https://youtu.be/tm5JpPZ5Ylk))
+[Watch the demonstration video](https://youtu.be/tm5JpPZ5Ylk)
 
