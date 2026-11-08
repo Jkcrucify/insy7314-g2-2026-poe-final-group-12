@@ -53,4 +53,3 @@ no credential is ever baked into an image layer.
 | `loki-all-events.png` | `{app="hustlehub"}` in Grafana Explore, returning live events from the containerised API |
 | `loki-security-events.png` | The same stream filtered to `category="security"`, showing one token's `jti` issued at login, revoked at logout and then rejected on reuse |
 | `loki-app-events.png` | The business trail, `category="app"`: gigs created, bookings with their transaction reference, income views |
-| `loki-event-counts.png` | `sum by (message) (count_over_time(...))` graphed, so the security events of the last hour can be read at a glance |
