@@ -354,3 +354,61 @@ Logs captured from a real container run are in [`evidence/evidence_part3/logs/`]
 
 ---
 
+## Testing
+
+| Suite | Command | Count |
+|---|---|---|
+| Backend unit + integration (Jest + Supertest) | `cd api && npm test` | 85 tests, 6 suites |
+| Frontend (Vitest + React Testing Library) | `cd client && npm test` | 57 tests, 11 files |
+| API end-to-end (Postman + Newman) | `cd api && npm run test:api` | 62 requests, 123 assertions |
+| Rate limiting (run last) | `cd api && npm run test:ratelimit` | 5 requests, 6 assertions |
+
+### Backend
+
+Jest runs against an **in-memory MongoDB replica set**, not a standalone server, because booking writes the booking and its transaction inside a MongoDB transaction. Each Jest worker gets its own database, so parallel suites cannot clear each other's data, and no external database is needed in CI.
+
+| Suite | Covers |
+|---|---|
+| `tests/unit/tax.test.js` | Every bracket boundary, the zero-tax threshold, rebates by age, expense deduction, band totals, provisional split, monotonicity, and hostile input |
+| `tests/integration/auth.test.js` | Registration, bcrypt storage, duplicate emails, weak passwords, blocked Admin role, uniform login errors, account lockout, token revocation |
+| `tests/integration/gigs.test.js` | RBAC, ownership on update and delete, validation, HTML stripping, search |
+| `tests/integration/bookings.test.js` | Atomic booking and transaction, server-side pricing, payment confirmation, participant-only access |
+| `tests/integration/income.test.js` | Income isolation between freelancers, tax-year windowing, monthly placement, expenses, age group, query validation, top gigs |
+| `tests/integration/security.test.js` | Security headers, NoSQL injection, prototype pollution, XSS, forged/expired/tampered/`none`-algorithm tokens, role escalation, body size limit, malformed JSON, password-hash leakage |
+
+```bash
+cd api
+npm test                 # the whole suite
+npm run test:coverage    # with a coverage report
+```
+
+### Frontend
+
+```bash
+cd client
+npm test
+```
+
+Covers rendering and interaction for login, registration, gig browsing, the booking flow, protected routes, role-aware navigation, server-side logout, the income and tax page, the dashboard, and the chart componentsincluding that a missing or non-numeric value cannot break the chart's scale.
+
+### API end-to-end
+
+The Postman collection is at `api/tests/postman/HustleHub.postman_collection.json`. Run it with the stack up:
+
+```bash
+cd api
+npm run test:api        # main suite + HTML report in tests/reports/
+npm run test:ratelimit  # 429 responses; run last, it blocks logins for 15 minutes
+```
+
+| Folder | Covers |
+|---|---|
+| 1 Auth | Registration, login, profile, tokens |
+| 2 Gigs | CRUD, RBAC, ownership, XSS payloads |
+| 3 Bookings and Transactions | Booking, transactions, income, access control |
+| 4 Security | NoSQL injection, tampered JWTs, malformed JSON, unknown routes |
+| 6 Tax, Lockout and Revocation | Tax estimate and its validation, logout revocation, five-strike lockout, prototype pollution |
+| 5 Rate Limiting | Brute-force login until 429 |
+
+---
+
