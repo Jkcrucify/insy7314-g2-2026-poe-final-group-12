@@ -6,6 +6,24 @@ The project is containerised, covered by 85 backend and 57 frontend automated te
 
 ---
 
+## Contents
+
+1. [Features](#features)
+2. [Tax estimationhow it works](#tax-estimation--how-it-works)
+3. [Getting started](#getting-started)
+4. [Architecture](#architecture)
+5. [Security implementation](#security-implementation)
+6. [Additional security features](#additional-security-features)
+7. [Logging and monitoring](#logging-and-monitoring)
+8. [Testing](#testing)
+9. [Static code analysis](#static-code-analysis)
+10. [CI/CD pipeline](#cicd-pipeline)
+11. [Docker](#docker)
+12. [Security review](#security-review)
+13. [Evidence](#evidence)
+
+---
+
 ## Features
 
 **Everyone**
