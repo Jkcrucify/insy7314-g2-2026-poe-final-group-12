@@ -78,7 +78,7 @@ Rebates (cumulative by age) and the matching tax thresholds:
 ### The five steps
 
 1. **Taxable income** = income earned in the tax year − deductible business expenses. Expenses can reduce income to zero but never below it.
-2. **Gross tax** = the bracket's fixed base amount + (the bracket rate × income above the bracket's lower edge). The tables are cumulative, so each slice of income is taxed at its own ratethis is *marginal* taxation, not a flat rate applied to the whole amount.
+2. **Gross tax** = the bracket's fixed base amount + (the bracket rate × income above the bracket's lower edge). The tables are cumulative, so each slice of income is taxed at its own rate. This is *marginal* taxation, not a flat rate applied to the whole amount.
 3. **Tax payable** = gross tax − the age rebate, floored at zero. The rebate is a credit against tax owed, never a refund.
 4. **Effective rate** = tax payable ÷ taxable income (what is actually paid overall). **Marginal rate** = the rate charged on the next rand earned.
 5. **Provisional payments** = tax payable ÷ 2, because sole proprietors pay in two instalments (end of August and end of February).
@@ -245,8 +245,8 @@ insy7314-g2-2026-poe-final-group-12/
 | **Input validation** | `express-validator` rule sets on every route that accepts input, including query parameters. Invalid input is rejected with a 400 listing the field namesnever the submitted values |
 | **Sanitisation** | HTML stripped with `xss`; MongoDB operator keys (`$…`) and dotted paths removed; prototype-chain keys (`__proto__`, `constructor`, `prototype`) dropped; Mongoose `sanitizeFilter` and `strictQuery` enabled; 10 KB request body limit |
 | **Rate limiting** | Login/register: 20 failed attempts per IP per 15 minutes. Bookings: 10 per user per 15 minutes. All API routes: 300 per 15 minutes |
-| **Account lockout** | Five consecutive failed logins lock the account for 15 minutessee [Additional security features](#additional-security-features) |
-| **Session revocation** | Logging out blocklists the token server-sidesee [Additional security features](#additional-security-features) |
+| **Account lockout** | Five consecutive failed logins lock the account for 15 minutes. See [Additional security features](#additional-security-features) |
+| **Session revocation** | Logging out blocklists the token server-side. See [Additional security features](#additional-security-features) |
 | **Security headers** | Helmet on the API with a strict CSP (`default-src 'none'`), HSTS, `nosniff`, frame and referrer policies, and `Cache-Control: no-store` on every response. nginx sends an equivalent CSP plus `Permissions-Policy` for the React app |
 | **CORS** | Restricted to the configured frontend origin, with an explicit method and header allow-list |
 | **Safe errors** | Generic messages, no stack traces. Login returns the same message and takes the same time whether the email exists or not |
@@ -263,19 +263,19 @@ Two controls go beyond the baseline required by the brief. Both are functional, 
 
 **The gap.** IP rate limiting protects *an address*. An attacker spreading guesses across a botnet, or sitting behind the same NAT as legitimate users, defeats it: each address stays under the limit while the account is attacked steadily.
 
-**The control.** The `User` document carries `failedLoginAttempts` and `lockUntil`. Five consecutive failures lock the account for 15 minutes. While locked, the API returns **423 Locked** with a `Retry-After` header and refuses the login *before* checking the passwordso an attacker who guesses correctly during a lock still gains nothing. A successful login clears the counter. The update is applied atomically with `$inc`/`$set`, so simultaneous requests cannot race past the threshold.
+**The control.** The `User` document carries `failedLoginAttempts` and `lockUntil`. Five consecutive failures lock the account for 15 minutes. While locked, the API returns **423 Locked** with a `Retry-After` header and refuses the login *before* checking the password, so an attacker who guesses correctly during a lock still gains nothing. A successful login clears the counter. The update is applied atomically with `$inc`/`$set`, so simultaneous requests cannot race past the threshold.
 
 Both thresholds are configurable with `LOCKOUT_MAX_ATTEMPTS` and `LOCKOUT_MINUTES`.
 
 **Logged as:** `auth.login.account_locked` when the lock is applied, `auth.login.locked_out` on each refused attempt.
 
-**Trade-off, stated deliberately.** The 423 response confirms that an account exists, which the generic 401 is designed to hide. The alternativereturning 401 while lockedleaves users unable to tell a wrong password from a locked account, and support cannot either. We chose the clearer response because enumeration is already slowed by the IP rate limiter and the uniform-timing login path, and because a lockout that cannot be explained to the user tends to be switched off. The decision is recorded here so a reviewer can disagree with it knowingly.
+**Trade-off, stated deliberately.** The 423 response confirms that an account exists, which the generic 401 is designed to hide. The alternative, returning 401 while locked, leaves users unable to tell a wrong password from a locked account, and support cannot either. We chose the clearer response because enumeration is already slowed by the IP rate limiter and the uniform-timing login path, and because a lockout that cannot be explained to the user tends to be switched off. The decision is recorded here so a reviewer can disagree with it knowingly.
 
 **Files:** [`api/models/User.js`](api/models/User.js), [`api/controllers/authController.js`](api/controllers/authController.js). **Tests:** five cases in `tests/integration/auth.test.js`, three in the Postman suite.
 
 ### 2. Server-side token revocation on logout
 
-**The gap.** A JWT is valid until it expires because the server holds no session. "Log out" in a browser only clears local storage. A token copied beforehandfrom a shared machine, an XSS payload, a proxy logkeeps working for the rest of its hour.
+**The gap.** A JWT is valid until it expires because the server holds no session. "Log out" in a browser only clears local storage. A token copied beforehand (from a shared machine, an XSS payload, a proxy log) keeps working for the rest of its hour.
 
 **The control.** Every token issued now carries a unique `jti` claim. `POST /api/auth/logout` records that `jti` in a `RevokedToken` collection, and the auth middleware refuses any token whose `jti` is listed, on every protected route. Logging out therefore ends the session on the server, not just in the browser. The frontend calls the endpoint before clearing its own state.
 
@@ -302,7 +302,7 @@ Logging uses **Winston** and is configured in [`api/utils/logger.js`](api/utils/
 | File | Contents |
 |---|---|
 | `logs/app.log` | Every event |
-| `logs/security.log` | Security events onlyauthentication, access control, rate limits, injection attempts |
+| `logs/security.log` | Security events only: authentication, access control, rate limits, injection attempts |
 | `logs/error.log` | Errors only |
 
 Files rotate at 5 MB and the last five are kept. In Docker they live on the `api-logs` volume, so they survive a container restart.
@@ -407,7 +407,7 @@ cd client
 npm test
 ```
 
-Covers rendering and interaction for login, registration, gig browsing, the booking flow, protected routes, role-aware navigation, server-side logout, the income and tax page, the dashboard, and the chart componentsincluding that a missing or non-numeric value cannot break the chart's scale.
+Covers rendering and interaction for login, registration, gig browsing, the booking flow, protected routes, role-aware navigation, server-side logout, the income and tax page, the dashboard, and the chart components, including that a missing or non-numeric value cannot break the chart's scale.
 
 ### API end-to-end
 
@@ -456,7 +456,7 @@ The first API run reported **21 problems**. Full detail, including the client ba
 
 **Two findings were removed rather than suppressed.** The tax engine's `TAX_TABLE.rebates[group]` became a `Map.get`, which cannot reach the object prototype whatever `group` contains. The `no-unused-vars` error on the `({ __v, ...rest })` idiom was resolved with `ignoreRestSiblings`, the option ESLint provides for that pattern.
 
-**Four were triaged as false positives**, each suppressed at the exact line with a comment naming the reasonkeys drawn from a whitelist declared in the same file, or file paths that come from deployment configuration no request can influence. Nothing is suppressed file-wide or rule-wide without a stated reason.
+**Four were triaged as false positives**, each suppressed at the exact line with a comment naming the reason: keys drawn from a whitelist declared in the same file, or file paths that come from deployment configuration no request can influence. Nothing is suppressed file-wide or rule-wide without a stated reason.
 
 ### Dependency audit
 
@@ -570,7 +570,7 @@ How the system addresses the common threat classes.
 
 **The threat.** An attacker stores markup in a gig title or description; it executes in another user's browser and steals their token.
 
-**Protectionsfour layers.**
+**Protections: four layers.**
 
 1. **Input:** all HTML tags are stripped with `xss` on the way in, and the contents of `<script>` and `<style>` are discarded entirely.
 2. **Output:** React escapes interpolated values by default. `dangerouslySetInnerHTML` is used nowhere, and `react/no-danger` is an ESLint **error**, so it cannot be reintroduced. `react/jsx-no-script-url` blocks `javascript:` URLs.
@@ -597,7 +597,7 @@ How the system addresses the common threat classes.
 | Token for a deleted account | The user is re-read from the database on every request |
 | Secrets in source control | `.env` is git-ignored; the API refuses to start without `JWT_SECRET` rather than using a default |
 
-**Verified by:** the authentication, lockout, revocation and JWT suitesforged, tampered, expired, `none`-algorithm and revoked tokens are each tested.
+**Verified by:** the authentication, lockout, revocation and JWT suites: forged, tampered, expired, `none`-algorithm and revoked tokens are each tested.
 
 ### Broken access control
 
@@ -612,7 +612,7 @@ How the system addresses the common threat classes.
 * **Price tampering:** the booking amount is read from the gig in the database, never from the request.
 * Every denial is logged as `access.denied.role` or `access.denied.ownership`, with the user and the resource.
 
-**Verified by:** RBAC and ownership tests across the gig, booking and income suitesincluding that a second freelancer cannot update, delete or read another's gig, and sees zero income of their own.
+**Verified by:** RBAC and ownership tests across the gig, booking and income suites, including that a second freelancer cannot update, delete or read another's gig, and sees zero income of their own.
 
 ### Other classes addressed
 
