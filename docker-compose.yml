@@ -1,0 +1,62 @@
+# HustleHub+ full stack: MongoDB + Express API + React (nginx)
+# Usage: copy .env.example to .env, then run `docker compose up --build`
+# App: http://localhost:8080   API: https://localhost:5001
+name: hustlehub
+
+services:
+  mongo:
+    image: mongo:7.0
+    # Single-node replica set: required for the MongoDB transactions used when booking
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initialises the replica set on first start, then reports healthy once it is ready
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok }"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+    # No ports published: the database is only reachable from inside the Docker network
+
+  api:
+    build: ./api
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      MONGO_URI: mongodb://mongo:27017/hustlehub?replicaSet=rs0
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (copy .env.example)}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      CLIENT_ORIGIN: http://localhost:8080
+      TRUST_PROXY: "1"
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-20}
+      BOOKING_RATE_LIMIT_MAX: ${BOOKING_RATE_LIMIT_MAX:-10}
+      # Account lockout: failed logins before an account locks, and for how long
+      LOCKOUT_MAX_ATTEMPTS: ${LOCKOUT_MAX_ATTEMPTS:-5}
+      LOCKOUT_MINUTES: ${LOCKOUT_MINUTES:-15}
+      # Optional: Grafana Cloud Loki log shipping (leave blank to log locally only)
+      LOKI_HOST: ${LOKI_HOST:-}
+      LOKI_USER: ${LOKI_USER:-}
+      LOKI_TOKEN: ${LOKI_TOKEN:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5001:5001"   # Published on localhost only, for API testing (Postman/Newman)
+    volumes:
+      - api-logs:/app/logs
+    restart: unless-stopped
+
+  client:
+    build: ./client
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  api-logs:
