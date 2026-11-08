@@ -24,9 +24,15 @@ certs/
 # -----------------------------------------------------------------------------
 logs
 .log
+
 npm-debug.log
 yarn-debug.log
 yarn-error.log
+
+# Logs captured from a real container run are committed as assessment evidence.
+# Without these negations the 'logs' rule above would silently swallow the folder.
+!evidence/**/logs/
+!evidence/**/logs/**
 
 # -----------------------------------------------------------------------------
 # Production Builds & Coverage
