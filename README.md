@@ -450,3 +450,59 @@ A second audit including development tooling runs without blocking. It still rep
 
 ---
 
+## CI/CD pipeline
+
+Defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml). It runs automatically on every push and pull request to `main`, and can be started manually. **Every step fails the build when its check does not pass.**
+
+### Job 1Backend
+
+1. Install dependencies with `npm ci` (lockfile-exact)
+2. **Static analysis:** ESLint with `--max-warnings=0`
+3. **Dependency audit:** production dependencies, failing on high or critical
+4. Dependency audit including dev tooling, reported without blocking
+5. **Tests:** the full Jest suite with coverage, against a cached in-memory MongoDB replica set
+6. Upload the analysis and coverage reports as artefacts
+
+### Job 2Frontend
+
+1. Install dependencies with `npm ci`
+2. **Static analysis:** ESLint with `--max-warnings=0`
+3. **Dependency audit**, same two-tier treatment
+4. **Tests:** the full Vitest suite
+5. **Build:** the production Vite bundle
+6. Upload the reports and the build output
+
+### Job 3Docker stack
+
+Runs only after both test jobs pass.
+
+1. **Build both images** with Buildx and a layer cache
+2. **Start the whole stack** with `docker compose up --wait`, which blocks until MongoDB, the API and nginx all report healthya container that fails its health check fails the job
+3. Verify the API answers over HTTPS
+4. Verify nginx serves the built app and sends its security headers (CSP, `nosniff`, frame options)
+5. **Run the Postman security suite against the live containers**authentication, RBAC, ownership, XSS, NoSQL injection, prototype pollution, lockout, token revocation and the tax endpoint
+6. Run the rate-limiting suite last, since it deliberately trips the limiter
+7. Upload the Newman HTML reports and the container logs as artefacts
+8. Tear the stack down
+
+### Job 4CodeQL
+
+Runs independently on every push and pull request, and weekly on a schedule so newly published queries are applied to existing code. Results are published to the repository's Security tab.
+
+### Security checks executed by the pipeline
+
+| Check | Where |
+|---|---|
+| SAST on the backend (`eslint-plugin-security`) | Job 1 |
+| SAST on the frontend (XSS and a11y rules) | Job 2 |
+| Semantic data-flow analysis (CodeQL) | Job 4 |
+| Dependency vulnerability audit | Jobs 1 and 2 |
+| Authentication, RBAC and ownership tests | Jobs 1 and 3 |
+| Injection, XSS and prototype-pollution tests | Jobs 1 and 3 |
+| JWT forgery, tampering and expiry tests | Job 1 |
+| Account lockout and token revocation tests | Jobs 1 and 3 |
+| Security header verification on the live containers | Job 3 |
+| Brute-force rate-limit verification | Job 3 |
+
+---
+
