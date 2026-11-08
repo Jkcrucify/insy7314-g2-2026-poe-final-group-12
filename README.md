@@ -1,4 +1,4 @@
-# HustleHub+Secure Freelance Marketplace (MERN)
+# HustleHub+: Secure Freelance Marketplace (MERN)
 
 HustleHub+ is a full-stack MERN marketplace where **Freelancers** list services (gigs) and **Clients** browse and book them through a simulated payment. Every booking creates a transaction record, each freelancer's income is tracked from those transactions, and that income is turned into an estimated SARS tax bill with a charted breakdown.
 
@@ -9,7 +9,7 @@ The project is containerised, covered by 85 backend and 57 frontend automated te
 ## Contents
 
 1. [Features](#features)
-2. [Tax estimationhow it works](#tax-estimation--how-it-works)
+2. [Tax estimation: how it works](#tax-estimation-how-it-works)
 3. [Getting started](#getting-started)
 4. [Architecture](#architecture)
 5. [Security implementation](#security-implementation)
@@ -47,7 +47,7 @@ Each booking and its transaction are written together inside a single MongoDB tr
 
 ---
 
-## Tax estimationhow it works
+## Tax estimation: how it works
 
 A HustleHub+ freelancer is a **sole proprietor**: gig income is taxed as personal income, not company income. The calculation uses the published SARS individual tax tables for the **2025/2026 year of assessment** and lives in [`api/utils/tax.js`](api/utils/tax.js).
 
@@ -126,7 +126,7 @@ Both charts are hand-built SVG with no charting dependency. The two series colou
 
 ## Getting started
 
-### Option 1Docker (recommended)
+### Option 1: Docker (recommended)
 
 The only prerequisite is Docker Desktop. No MongoDB installation, no certificate generation.
 
@@ -143,7 +143,7 @@ docker compose up --build
 
 The API generates its own TLS certificate on first start, so no private key is ever baked into an image or committed. Stop the stack with `docker compose down`, or `docker compose down --volumes` to also discard the database.
 
-### Option 2Running locally
+### Option 2: Running locally
 
 **Prerequisites:** Node.js 20+, a MongoDB database (Atlas or local, with replica set support for transactions), OpenSSL.
 
@@ -472,7 +472,7 @@ A second audit including development tooling runs without blocking. It still rep
 
 Defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml). It runs automatically on every push and pull request to `main`, and can be started manually. **Every step fails the build when its check does not pass.**
 
-### Job 1Backend
+### Job 1: Backend
 
 1. Install dependencies with `npm ci` (lockfile-exact)
 2. **Static analysis:** ESLint with `--max-warnings=0`
@@ -481,7 +481,7 @@ Defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [`.github/
 5. **Tests:** the full Jest suite with coverage, against a cached in-memory MongoDB replica set
 6. Upload the analysis and coverage reports as artefacts
 
-### Job 2Frontend
+### Job 2: Frontend
 
 1. Install dependencies with `npm ci`
 2. **Static analysis:** ESLint with `--max-warnings=0`
@@ -490,7 +490,7 @@ Defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [`.github/
 5. **Build:** the production Vite bundle
 6. Upload the reports and the build output
 
-### Job 3Docker stack
+### Job 3: Docker stack
 
 Runs only after both test jobs pass.
 
@@ -503,7 +503,7 @@ Runs only after both test jobs pass.
 7. Upload the Newman HTML reports and the container logs as artefacts
 8. Tear the stack down
 
-### Job 4CodeQL
+### Job 4: CodeQL
 
 Runs independently on every push and pull request, and weekly on a schedule so newly published queries are applied to existing code. Results are published to the repository's Security tab.
 
