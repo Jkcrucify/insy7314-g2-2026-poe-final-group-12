@@ -412,3 +412,41 @@ npm run test:ratelimit  # 429 responses; run last, it blocks logins for 15 minut
 
 ---
 
+## Static code analysis
+
+Three tools analyse the code. All run in the pipeline; all fail the build on a finding.
+
+| Tool | Scope | Looks for |
+|---|---|---|
+| ESLint + `eslint-plugin-security` | `api/` | Object injection, non-literal regular expressions (ReDoS), unsafe file paths, `eval`, plus correctness rules |
+| ESLint + `react`, `react-hooks`, `jsx-a11y` | `client/` | Component and hook correctness, accessibility defects, and XSS vectors`react/no-danger` and `react/jsx-no-script-url` are errors |
+| CodeQL (`security-extended`) | whole repository | Semantic data-flow: follows untrusted input from an HTTP request to a database query, file path or response |
+| `npm audit` | both | Known vulnerabilities in dependencies |
+
+```bash
+cd api && npm run lint
+cd client && npm run lint
+```
+
+Both run clean. CodeQL results appear under the repository's **Security → Code scanning** tab.
+
+### What the results showed, and what was done
+
+The first API run reported **21 problems**. Full detail, including the client baseline, is in [`evidence/evidence_part3/static-analysis/README.md`](evidence/evidence_part3/static-analysis/README.md).
+
+**A genuine vulnerability was found and fixed: prototype pollution.** The request sanitiser copied every key of the request body onto a fresh object with bracket notation. A body of `{"__proto__": {"isAdmin": true}}` would have written to `Object.prototype`, adding `isAdmin` to **every object in the running process**so any later code reading a property it had never set would have seen the attacker's value. `__proto__`, `constructor` and `prototype` are now dropped alongside the MongoDB operator keys, the attempt is logged as `input.prototype_key_removed`, and three tests cover it. The same guard was applied to the log redactor, which rebuilt metadata the same way.
+
+**Two findings were removed rather than suppressed.** The tax engine's `TAX_TABLE.rebates[group]` became a `Map.get`, which cannot reach the object prototype whatever `group` contains. The `no-unused-vars` error on the `({ __v, ...rest })` idiom was resolved with `ignoreRestSiblings`, the option ESLint provides for that pattern.
+
+**Four were triaged as false positives**, each suppressed at the exact line with a comment naming the reasonkeys drawn from a whitelist declared in the same file, or file paths that come from deployment configuration no request can influence. Nothing is suppressed file-wide or rule-wide without a stated reason.
+
+### Dependency audit
+
+`npm audit --omit=dev --audit-level=high` is the pipeline gate: a high or critical advisory in anything that ships inside the container fails the build. Both projects report **0 vulnerabilities** at that level.
+
+To get there, `body-parser`, `brace-expansion` and `proxy-addr` were patched in the API (the last carried a **critical** advisory, and all three arrive through Express), and Vitest was upgraded from 3.x to 5.x in the client, clearing two critical advisories.
+
+A second audit including development tooling runs without blocking. It still reports advisories in the Newman and Postman packages; clearing them would mean downgrading Newman several major versions and losing the HTML reporter the evidence depends on. Newman runs on the build machine only and never enters the deployed image, so it is reported rather than treated as an exposure.
+
+---
+
