@@ -275,3 +275,82 @@ Prototype-pollution protection was added after `eslint-plugin-security` flagged 
 
 ---
 
+## Logging and monitoring
+
+Logging uses **Winston** and is configured in [`api/utils/logger.js`](api/utils/logger.js). Every entry is a single line of JSON, which means logs can be searched, filtered and aggregated by a tool rather than read by eye.
+
+### What is written, and where
+
+| File | Contents |
+|---|---|
+| `logs/app.log` | Every event |
+| `logs/security.log` | Security events onlyauthentication, access control, rate limits, injection attempts |
+| `logs/error.log` | Errors only |
+
+Files rotate at 5 MB and the last five are kept. In Docker they live on the `api-logs` volume, so they survive a container restart.
+
+### Events captured
+
+**Authentication and sessions**
+
+| Event | Meaning |
+|---|---|
+| `auth.register.success` / `auth.register.duplicate` | Account created / email already taken |
+| `auth.login.success` / `auth.login.failure` | With the reason`wrong_password` or `unknown_email`recorded for investigators but never returned to the client |
+| `auth.login.account_locked` / `auth.login.locked_out` | Lockout applied / an attempt refused during a lock |
+| `auth.logout.success` | Token revoked |
+| `auth.token.missing` / `auth.token.rejected` | No token / expired, tampered, revoked, or belonging to a deleted account |
+
+**Access control**
+
+| Event | Meaning |
+|---|---|
+| `access.denied.role` | A user tried an action their role does not permit |
+| `access.denied.ownership` | A user tried to read or modify someone else's gig or booking |
+
+**Attacks and abuse**
+
+| Event | Meaning |
+|---|---|
+| `input.validation_failed` | Input rejected, with the field names |
+| `input.html_stripped` | An XSS payload was removed |
+| `input.nosql_operator_removed` | A MongoDB operator was stripped from a body |
+| `input.prototype_key_removed` | A prototype-pollution payload was dropped |
+| `input.body_too_large` | A body exceeded the 10 KB limit |
+| `ratelimit.exceeded` | A limiter blocked a request, naming which one |
+| `route.not_found` | Repeated 404s from one address can indicate scanning |
+
+**Business events**
+
+| Event | Meaning |
+|---|---|
+| `gig.created` / `gig.updated` / `gig.deleted` | Marketplace changes |
+| `booking.created` | Booking confirmed, with the transaction reference and amount |
+| `transaction.recorded` | The payment record written alongside the booking |
+| `booking.failed` | The atomic write did not complete |
+| `income.summary.viewed` | A freelancer viewed their income and tax figures |
+
+**System events:** `server.started`, `server.stopping`, `server.error`, `db.connected`, `db.disconnected`, `db.reconnected`, `db.connection_failed`, `server.config_missing`.
+
+### Why this matters
+
+* **Attribution.** Every entry carries a request ID, the client IP, the user ID and role, the HTTP method and the path. A single request can be followed end to end, and an incident can be traced to an account.
+* **Detection.** Security events are separated into their own file, so `auth.login.failure` spikes, repeated `access.denied.ownership` or a run of `route.not_found` stand out instead of being buried in request noise.
+* **Evidence.** Bookings and transactions are logged with their reference and amount, giving a financial audit trail independent of the database.
+* **Incident response.** `auth.login.failure` records *why* a login failed. That distinction is essential to telling credential stuffing (many unknown emails) from a targeted attack (one email, many wrong passwords)and it is never exposed to the client.
+
+### Keeping secrets out of the logs
+
+* Values under `password`, `token`, `authorization`, `jwt`, `secret` and `cookie` are replaced with `[REDACTED]`, recursively through nested objects.
+* Email addresses are masked to `t***@test.com`enough to correlate attempts without storing the address.
+* Failed input is logged by **field name only**; the submitted value is never written, so an injection payload cannot be replayed out of the logs.
+* JSON encoding escapes newlines and quotes, so user input cannot forge extra log lines (log injection).
+
+### Cloud logging
+
+Setting `LOKI_HOST`, `LOKI_USER` and `LOKI_TOKEN` adds a **Grafana Cloud Loki** transport. The same redacted JSON is batched every five seconds and shipped for central search, dashboards and alerting across containers. A Loki outage can never break the API: connection errors are reported locally and the file transports carry on. The queries used, the labelling decisions and screenshots of the live stream are in [`evidence/evidence_part3/cloud-logging/`](evidence/evidence_part3/cloud-logging/README.md).
+
+Logs captured from a real container run are in [`evidence/evidence_part3/logs/`](evidence/evidence_part3/logs/) and cover sixteen distinct security event types.
+
+---
+
