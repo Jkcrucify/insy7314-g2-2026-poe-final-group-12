@@ -218,3 +218,60 @@ insy7314-g2-2026-poe-final-group-12/
 
 ---
 
+## Security implementation
+
+| Control | Implementation |
+|---|---|
+| **Authentication** | JWT, HS256, one-hour expiry, required on every protected route. Passwords hashed with bcrypt at 12 rounds. A strong-password policy is enforced at registration (8–64 characters, upper, lower, number, symbol) |
+| **Authorisation (RBAC)** | Role middleware: only Freelancers manage gigs and view income, only Clients book. Ownership checks stop users reading or modifying anyone else's data (403). Registering as `Admin` is blocked. The role is read from the **database**, never from the token |
+| **Input validation** | `express-validator` rule sets on every route that accepts input, including query parameters. Invalid input is rejected with a 400 listing the field namesnever the submitted values |
+| **Sanitisation** | HTML stripped with `xss`; MongoDB operator keys (`$…`) and dotted paths removed; prototype-chain keys (`__proto__`, `constructor`, `prototype`) dropped; Mongoose `sanitizeFilter` and `strictQuery` enabled; 10 KB request body limit |
+| **Rate limiting** | Login/register: 20 failed attempts per IP per 15 minutes. Bookings: 10 per user per 15 minutes. All API routes: 300 per 15 minutes |
+| **Account lockout** | Five consecutive failed logins lock the account for 15 minutessee [Additional security features](#additional-security-features) |
+| **Session revocation** | Logging out blocklists the token server-sidesee [Additional security features](#additional-security-features) |
+| **Security headers** | Helmet on the API with a strict CSP (`default-src 'none'`), HSTS, `nosniff`, frame and referrer policies, and `Cache-Control: no-store` on every response. nginx sends an equivalent CSP plus `Permissions-Policy` for the React app |
+| **CORS** | Restricted to the configured frontend origin, with an explicit method and header allow-list |
+| **Safe errors** | Generic messages, no stack traces. Login returns the same message and takes the same time whether the email exists or not |
+| **Transport & secrets** | HTTPS end to end. Secrets live in `.env`, which is git-ignored; `.env.example` documents them. TLS keys are generated at container start, never committed |
+| **Containers** | Both images run as a non-root user. The database publishes no port outside the Docker network |
+
+---
+
+## Additional security features
+
+Two controls go beyond the baseline required by the brief. Both are functional, both are covered by automated tests, and both close a gap the baseline leaves open.
+
+### 1. Per-account lockout after repeated failed logins
+
+**The gap.** IP rate limiting protects *an address*. An attacker spreading guesses across a botnet, or sitting behind the same NAT as legitimate users, defeats it: each address stays under the limit while the account is attacked steadily.
+
+**The control.** The `User` document carries `failedLoginAttempts` and `lockUntil`. Five consecutive failures lock the account for 15 minutes. While locked, the API returns **423 Locked** with a `Retry-After` header and refuses the login *before* checking the passwordso an attacker who guesses correctly during a lock still gains nothing. A successful login clears the counter. The update is applied atomically with `$inc`/`$set`, so simultaneous requests cannot race past the threshold.
+
+Both thresholds are configurable with `LOCKOUT_MAX_ATTEMPTS` and `LOCKOUT_MINUTES`.
+
+**Logged as:** `auth.login.account_locked` when the lock is applied, `auth.login.locked_out` on each refused attempt.
+
+**Trade-off, stated deliberately.** The 423 response confirms that an account exists, which the generic 401 is designed to hide. The alternativereturning 401 while lockedleaves users unable to tell a wrong password from a locked account, and support cannot either. We chose the clearer response because enumeration is already slowed by the IP rate limiter and the uniform-timing login path, and because a lockout that cannot be explained to the user tends to be switched off. The decision is recorded here so a reviewer can disagree with it knowingly.
+
+**Files:** [`api/models/User.js`](api/models/User.js), [`api/controllers/authController.js`](api/controllers/authController.js). **Tests:** five cases in `tests/integration/auth.test.js`, three in the Postman suite.
+
+### 2. Server-side token revocation on logout
+
+**The gap.** A JWT is valid until it expires because the server holds no session. "Log out" in a browser only clears local storage. A token copied beforehandfrom a shared machine, an XSS payload, a proxy logkeeps working for the rest of its hour.
+
+**The control.** Every token issued now carries a unique `jti` claim. `POST /api/auth/logout` records that `jti` in a `RevokedToken` collection, and the auth middleware refuses any token whose `jti` is listed, on every protected route. Logging out therefore ends the session on the server, not just in the browser. The frontend calls the endpoint before clearing its own state.
+
+Each entry stores the token's own expiry under a **MongoDB TTL index**, so the document deletes itself the moment the token would have expired anyway. The blocklist can never grow beyond one hour of logouts.
+
+Revocation is per token, not per user: logging out on one device leaves other sessions working.
+
+**Logged as:** `auth.logout.success`, and `auth.token.rejected` with `reason: "revoked"` on a replay attempt.
+
+**Files:** [`api/models/RevokedToken.js`](api/models/RevokedToken.js), [`api/middleware/authMiddleware.js`](api/middleware/authMiddleware.js). **Tests:** six cases in `tests/integration/auth.test.js`, six in the Postman suite, one in `client/src/__tests__/Navbar.test.jsx`.
+
+### A third control, found by static analysis
+
+Prototype-pollution protection was added after `eslint-plugin-security` flagged the request sanitiser. It is described under [Static code analysis](#static-code-analysis).
+
+---
+
