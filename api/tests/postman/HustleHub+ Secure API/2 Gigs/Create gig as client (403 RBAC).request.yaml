@@ -1,0 +1,21 @@
+$kind: http-request
+url: "{{baseUrl}}/api/gigs"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{clientToken}}
+body:
+  type: text
+  content: |-
+    {
+      "title": "Client should not create gigs",
+      "description": "This request must be blocked by role-based access control.",
+      "category": "Other",
+      "price": 100,
+      "deliveryDays": 1
+    }
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));
+    language: text/javascript
+order: 2000

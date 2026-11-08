@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/api/bookings/{{bookingId}}"
+method: GET
+headers:
+  Authorization: Bearer {{clientToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      pm.test('Transaction included', () => pm.expect(pm.response.json().transaction.reference).to.match(/^HH-/));
+    language: text/javascript
+order: 7000

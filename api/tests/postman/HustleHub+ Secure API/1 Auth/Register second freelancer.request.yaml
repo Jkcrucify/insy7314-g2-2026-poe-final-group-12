@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "username": "freelancer2_{{runId}}",
+      "email": "freelancer2{{runId}}@test.com",
+      "password": "{{password}}",
+      "role": "Freelancer"
+    }
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 201', () => pm.response.to.have.status(201));
+    language: text/javascript
+order: 3000

@@ -1,0 +1,26 @@
+$kind: http-request
+url: "{{baseUrl}}/api/gigs"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{freelancerToken}}
+body:
+  type: text
+  content: |-
+    {
+      "title": "<script>alert('xss')</script>Website Development",
+      "description": "<img src=x onerror=alert(1)>I will build a fast, responsive website for your business.",
+      "category": "Development",
+      "price": 3000,
+      "deliveryDays": 10
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 201', () => pm.response.to.have.status(201));
+      const gig = pm.response.json().gig;
+      pm.test('Script tag stripped from title', () => pm.expect(gig.title).to.not.include('<script'));
+      pm.test('Event handler stripped from description', () => pm.expect(gig.description).to.not.include('onerror'));
+      pm.collectionVariables.set('xssGigId', gig._id);
+    language: text/javascript
+order: 4000

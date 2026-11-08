@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/transactions/mine"
+method: GET
+headers:
+  Authorization: Bearer {{clientToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const tx = pm.response.json().transactions;
+      pm.test('One transaction recorded', () => pm.expect(tx.length).to.eql(1));
+      pm.test('Transaction amount is correct', () => pm.expect(tx[0].amount).to.eql(1800));
+    language: text/javascript
+order: 9000

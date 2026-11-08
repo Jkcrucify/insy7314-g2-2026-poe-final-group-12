@@ -1,0 +1,25 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "username": "bad user!",
+      "email": "not-an-email",
+      "password": "weak",
+      "role": "Admin"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 400', () => pm.response.to.have.status(400));
+      const fields = pm.response.json().errors.map(e => e.field);
+      pm.test('Invalid email rejected', () => pm.expect(fields).to.include('email'));
+      pm.test('Weak password rejected', () => pm.expect(fields).to.include('password'));
+      pm.test('Privileged role (Admin) rejected', () => pm.expect(fields).to.include('role'));
+      pm.test('Submitted values are not echoed back', () => pm.expect(pm.response.text()).to.not.include('weak'));
+    language: text/javascript
+order: 6000

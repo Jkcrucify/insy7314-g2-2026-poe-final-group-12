@@ -1,0 +1,12 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/me"
+method: GET
+headers:
+  Authorization: Bearer {{clientToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      pm.test('Returns the logged-in user', () => pm.expect(pm.response.json().user.username).to.eql('client_' + pm.collectionVariables.get('runId')));
+    language: text/javascript
+order: 12000

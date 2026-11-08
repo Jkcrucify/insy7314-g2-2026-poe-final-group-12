@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "freelancer{{runId}}@test.com",
+      "password": "{{password}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('JWT returned', () => pm.expect(body.token.split('.').length).to.eql(3));
+      pm.test('Rate limiting headers present on auth endpoint', () => pm.expect(pm.response.headers.has('RateLimit-Policy')).to.be.true);
+      pm.collectionVariables.set('freelancerToken', body.token);
+    language: text/javascript
+order: 7000

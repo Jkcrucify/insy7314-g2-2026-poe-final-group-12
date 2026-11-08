@@ -1,0 +1,10 @@
+$kind: http-request
+url: "{{baseUrl}}/api/gigs/{{xssGigId}}"
+method: DELETE
+headers:
+  Authorization: Bearer {{freelancerToken}}
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 200', () => pm.response.to.have.status(200));
+    language: text/javascript
+order: 15000

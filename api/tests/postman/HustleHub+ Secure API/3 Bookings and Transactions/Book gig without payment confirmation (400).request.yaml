@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/api/bookings"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{clientToken}}
+body:
+  type: text
+  content: |-
+    {
+      "gigId": "{{gigId}}"
+    }
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 400', () => pm.response.to.have.status(400));
+    language: text/javascript
+order: 2000

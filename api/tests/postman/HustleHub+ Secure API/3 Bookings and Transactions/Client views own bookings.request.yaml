@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/bookings/mine"
+method: GET
+headers:
+  Authorization: Bearer {{clientToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const bookings = pm.response.json().bookings;
+      pm.test('Booking is listed', () => pm.expect(bookings.map(b => b._id)).to.include(pm.collectionVariables.get('bookingId')));
+      pm.test('Transaction reference attached', () => pm.expect(bookings[0].transactionReference).to.match(/^HH-/));
+    language: text/javascript
+order: 4000

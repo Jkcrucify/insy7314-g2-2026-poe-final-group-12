@@ -1,0 +1,13 @@
+$kind: collection
+description: "Part 2 test suite: authentication, gig management, bookings, transactions, RBAC, input sanitisation, security headers and rate limiting. Run with Newman using --insecure (self-signed certificate)."
+variables:
+  baseUrl: https://localhost:5001
+  password: Str0ng!Pass
+  runId: ""
+  freelancerToken: ""
+  freelancer2Token: ""
+  clientToken: ""
+  gigId: ""
+  xssGigId: ""
+  bookingId: ""
+  rlAttempts: "0"

@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": { "$ne": null },
+      "password": { "$ne": null }
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 400 (operator payload rejected)', () => pm.response.to.have.status(400));
+      pm.test('No token issued', () => pm.expect(pm.response.json().token).to.be.undefined);
+    language: text/javascript
+order: 1000

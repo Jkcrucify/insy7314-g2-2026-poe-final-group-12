@@ -1,0 +1,23 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/register"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "username": "freelancer_{{runId}}",
+      "email": "freelancer{{runId}}@test.com",
+      "password": "{{password}}",
+      "role": "Freelancer"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 201', () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test('Role is Freelancer', () => pm.expect(body.user.role).to.eql('Freelancer'));
+      pm.test('Password is not exposed', () => pm.expect(JSON.stringify(body)).to.not.include('password'));
+    language: text/javascript
+order: 2000

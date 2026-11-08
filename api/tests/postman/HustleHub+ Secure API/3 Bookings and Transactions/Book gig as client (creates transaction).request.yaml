@@ -1,0 +1,28 @@
+$kind: http-request
+url: "{{baseUrl}}/api/bookings"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{clientToken}}
+body:
+  type: text
+  content: |-
+    {
+      "gigId": "{{gigId}}",
+      "notes": "Please use blue and white colours.",
+      "confirmPayment": true,
+      "amount": 1
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 201', () => pm.response.to.have.status(201));
+      const body = pm.response.json();
+      pm.test('Booking is confirmed', () => pm.expect(body.booking.status).to.eql('Confirmed'));
+      pm.test('Amount taken from server, not client (price tampering blocked)', () => pm.expect(body.booking.amount).to.eql(1800));
+      pm.test('Transaction record created', () => pm.expect(body.transaction.reference).to.match(/^HH-/));
+      pm.test('Transaction linked to booking', () => pm.expect(body.transaction.booking).to.eql(body.booking._id));
+      pm.test('Rate limiting headers present on booking endpoint', () => pm.expect(pm.response.headers.has('RateLimit-Policy')).to.be.true);
+      pm.collectionVariables.set('bookingId', body.booking._id);
+    language: text/javascript
+order: 3000

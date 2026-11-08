@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/transactions/income"
+method: GET
+headers:
+  Authorization: Bearer {{freelancerToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const body = pm.response.json();
+      pm.test('Income attributed to correct freelancer', () => pm.expect(body.totalIncome).to.eql(1800));
+      pm.test('Transaction count is 1', () => pm.expect(body.transactionCount).to.eql(1));
+    language: text/javascript
+order: 10000

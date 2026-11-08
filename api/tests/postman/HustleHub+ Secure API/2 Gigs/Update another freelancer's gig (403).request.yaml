@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/api/gigs/{{gigId}}"
+method: PUT
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{freelancer2Token}}
+body:
+  type: text
+  content: |-
+    {
+      "price": 50
+    }
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 403 Forbidden (ownership enforced)', () => pm.response.to.have.status(403));
+    language: text/javascript
+order: 12000

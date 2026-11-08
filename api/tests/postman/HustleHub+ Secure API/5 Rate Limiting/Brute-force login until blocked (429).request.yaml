@@ -1,0 +1,31 @@
+$kind: http-request
+url: "{{baseUrl}}/api/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "attacker@test.com",
+      "password": "Guess1234!"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Repeats this request until the auth rate limiter responds with 429
+      const attempts = Number(pm.collectionVariables.get('rlAttempts') || 0) + 1;
+      pm.collectionVariables.set('rlAttempts', attempts);
+      if (pm.response.code === 429) {
+          pm.test(`Login blocked with 429 after ${attempts} attempts`, () => pm.response.to.have.status(429));
+          pm.test('Rate limit message returned', () => pm.expect(pm.response.json().message).to.match(/too many/i));
+          pm.collectionVariables.set('rlAttempts', 0);
+      } else if (attempts < 30) {
+          pm.test(`Attempt ${attempts} rejected with 401`, () => pm.response.to.have.status(401));
+          postman.setNextRequest(pm.info.requestName);
+      } else {
+          pm.test('Rate limit triggered within 30 attempts', () => pm.expect.fail('No 429 received'));
+          pm.collectionVariables.set('rlAttempts', 0);
+      }
+    language: text/javascript
+order: 1000

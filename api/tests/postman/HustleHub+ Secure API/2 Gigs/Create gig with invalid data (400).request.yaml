@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{baseUrl}}/api/gigs"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{freelancerToken}}
+body:
+  type: text
+  content: |-
+    {
+      "title": "",
+      "description": "Too short",
+      "category": "Hacking",
+      "price": -5,
+      "deliveryDays": 0
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 400', () => pm.response.to.have.status(400));
+      const fields = pm.response.json().errors.map(e => e.field);
+      pm.test('Title, price and category validated', () => pm.expect(fields).to.include.members(['title', 'price', 'category']));
+    language: text/javascript
+order: 5000

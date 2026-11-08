@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{baseUrl}}/api/bookings"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{freelancer2Token}}
+body:
+  type: text
+  content: |-
+    {
+      "gigId": "{{gigId}}",
+      "confirmPayment": true
+    }
+scripts:
+  - type: afterResponse
+    code: pm.test('Status 403 Forbidden', () => pm.response.to.have.status(403));
+    language: text/javascript
+order: 1000

@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/api/gigs?search=logo&category=Design"
+method: GET
+headers:
+  Authorization: Bearer {{clientToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const gigs = pm.response.json().gigs;
+      pm.test('All results match the category', () => gigs.forEach(g => pm.expect(g.category).to.eql('Design')));
+    language: text/javascript
+order: 7000

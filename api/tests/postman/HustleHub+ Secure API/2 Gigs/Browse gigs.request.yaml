@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{baseUrl}}/api/gigs"
+method: GET
+headers:
+  Authorization: Bearer {{clientToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      const gigs = pm.response.json().gigs;
+      pm.test('Created gig is listed', () => pm.expect(gigs.map(g => g._id)).to.include(pm.collectionVariables.get('gigId')));
+      pm.test('Freelancer emails are not exposed', () => pm.expect(pm.response.text()).to.not.include('@test.com'));
+    language: text/javascript
+order: 6000

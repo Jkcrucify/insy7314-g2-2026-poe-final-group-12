@@ -1,0 +1,29 @@
+$kind: http-request
+url: "{{baseUrl}}/api/status"
+method: GET
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Unique run id so every Newman run registers fresh users
+      pm.collectionVariables.set('runId', Date.now().toString());
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('Status 200', () => pm.response.to.have.status(200));
+      pm.test('Content-Security-Policy header is set', () => {
+          pm.expect(pm.response.headers.get('Content-Security-Policy')).to.include("default-src 'none'");
+      });
+      pm.test('X-Content-Type-Options is nosniff', () => {
+          pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff');
+      });
+      pm.test('Clickjacking protection (X-Frame-Options) is set', () => {
+          pm.expect(pm.response.headers.has('X-Frame-Options')).to.be.true;
+      });
+      pm.test('HSTS header is set', () => {
+          pm.expect(pm.response.headers.get('Strict-Transport-Security')).to.include('max-age=');
+      });
+      pm.test('X-Powered-By is hidden', () => {
+          pm.expect(pm.response.headers.has('X-Powered-By')).to.be.false;
+      });
+    language: text/javascript
+order: 1000
