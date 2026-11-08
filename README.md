@@ -506,3 +506,27 @@ Runs independently on every push and pull request, and weekly on a schedule so n
 
 ---
 
+## Docker
+
+Both applications are containerised and orchestrated with Docker Compose.
+
+| Service | Image | Notes |
+|---|---|---|
+| `mongo` | `mongo:7.0` | Single-node replica set, required for the transactions used when booking. **No published port**reachable only from inside the Docker network. Data persists on a named volume |
+| `api` | built from [`api/Dockerfile`](api/Dockerfile) | Node 22 Alpine, production dependencies only, runs as the unprivileged `node` user. Generates its TLS certificate at start-up. Published on `127.0.0.1:5001` only, for API testing |
+| `client` | built from [`client/Dockerfile`](client/Dockerfile) | Multi-stage: Vite builds the bundle, then `nginx-unprivileged` serves the static files as non-root on port 8080 with the security headers applied |
+
+Each service declares a **health check**, and the dependency chain is `client → api → mongo`, so nothing starts before what it needs is actually ready.
+
+```bash
+docker compose up --build      # start the stack
+docker compose ps              # show health
+docker compose logs -f api     # follow the API logs
+docker compose down            # stop
+docker compose down --volumes  # stop and discard the database
+```
+
+Hardening applied: non-root users in both images, no database port on the host, production-only dependencies in the API image, `.dockerignore` keeping secrets and `node_modules` out of the build context, and private keys generated at runtime rather than baked into a layer.
+
+---
+
