@@ -106,3 +106,115 @@ Both charts are hand-built SVG with no charting dependency. The two series colou
 
 ---
 
+## Getting started
+
+### Option 1Docker (recommended)
+
+The only prerequisite is Docker Desktop. No MongoDB installation, no certificate generation.
+
+```bash
+cp .env.example .env     # then set JWT_SECRET to a long random value
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Web application | <http://localhost:8080> |
+| API | <https://localhost:5001> (self-signed certificate) |
+| MongoDB | internal to the Docker network only, no published port |
+
+The API generates its own TLS certificate on first start, so no private key is ever baked into an image or committed. Stop the stack with `docker compose down`, or `docker compose down --volumes` to also discard the database.
+
+### Option 2Running locally
+
+**Prerequisites:** Node.js 20+, a MongoDB database (Atlas or local, with replica set support for transactions), OpenSSL.
+
+```bash
+# Backend
+cd api
+npm install
+mkdir -p certs && cd certs
+openssl req -nodes -new -x509 -days 365 -subj "/CN=localhost" \
+  -keyout server.key -out server.cert
+cd ..
+cp .env.example .env     # set MONGO_URI and JWT_SECRET
+npm run dev              # https://localhost:5001
+```
+
+```bash
+# Frontend, in a second terminal
+cd client
+npm install
+npm run dev              # http://localhost:5173
+```
+
+### Environment variables
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `MONGO_URI` | yes || MongoDB connection string |
+| `JWT_SECRET` | yes || Signing key for JSON web tokens |
+| `JWT_EXPIRES_IN` | no | `1h` | Token lifetime |
+| `PORT` | no | `5001` | API port |
+| `CLIENT_ORIGIN` | no | `http://localhost:5173` | The only origin allowed by CORS |
+| `TRUST_PROXY` | no || Proxy hops to trust, so per-IP limits stay accurate behind nginx |
+| `AUTH_RATE_LIMIT_MAX` | no | `20` | Failed auth attempts per IP per 15 minutes |
+| `BOOKING_RATE_LIMIT_MAX` | no | `10` | Bookings per user per 15 minutes |
+| `LOCKOUT_MAX_ATTEMPTS` | no | `5` | Failed logins before an account locks |
+| `LOCKOUT_MINUTES` | no | `15` | How long an account stays locked |
+| `LOG_LEVEL` | no | `info` | Minimum level written to the logs |
+| `LOG_DIR` | no | `api/logs` | Where log files are written |
+| `LOKI_HOST`, `LOKI_USER`, `LOKI_TOKEN` | no || Grafana Cloud Loki; when all three are set, logs are also shipped there |
+
+The API refuses to start if `JWT_SECRET` or `MONGO_URI` is missing, rather than falling back to an insecure default.
+
+---
+
+## Architecture
+
+```
+insy7314-g2-2026-poe-final-group-12/
+├─ .github/workflows/      CI pipeline and CodeQL scanning
+├─ api/                    Express REST API (HTTPS)
+│  ├─ config/              Database connection
+│  ├─ controllers/         Request handlers
+│  ├─ middleware/          Auth, RBAC, validation, sanitisation, rate limits, errors, logging
+│  ├─ models/              Mongoose schemas
+│  ├─ routes/              Route definitions
+│  ├─ utils/               Logger, constants, tax engine
+│  ├─ validators/          express-validator rule sets
+│  ├─ tests/               Jest unit + integration suites, Postman collection, reports
+│  └─ Dockerfile
+├─ client/                 React 19 + Vite single-page app
+│  ├─ src/api/             Fetch wrapper
+│  ├─ src/components/      Shared UI, including the charts
+│  ├─ src/context/         Auth context
+│  ├─ src/pages/           Routed pages
+│  ├─ src/__tests__/       Vitest suites
+│  └─ Dockerfile           Multi-stage build, served by unprivileged nginx
+├─ evidence/               Screenshots, logs and analysis results
+└─ docker-compose.yml      MongoDB + API + client
+```
+
+### API endpoints
+
+| Method | Route | Access | Purpose |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | public | Create a Client or Freelancer account |
+| `POST` | `/api/auth/login` | public | Authenticate, receive a JWT |
+| `POST` | `/api/auth/logout` | private | Revoke the current token |
+| `GET` | `/api/auth/me` | private | Current user profile |
+| `GET` | `/api/gigs` | private | Browse and search gigs |
+| `GET` | `/api/gigs/mine` | Freelancer | The caller's own gigs |
+| `GET` | `/api/gigs/:id` | private | One gig |
+| `POST` | `/api/gigs` | Freelancer | Create a gig |
+| `PUT` | `/api/gigs/:id` | Freelancer, owner | Update own gig |
+| `DELETE` | `/api/gigs/:id` | Freelancer, owner | Delete own gig |
+| `POST` | `/api/bookings` | Client | Book a gig, recording the transaction |
+| `GET` | `/api/bookings/mine` | private | Bookings made or received |
+| `GET` | `/api/bookings/:id` | participants only | One booking |
+| `GET` | `/api/transactions/mine` | private | The caller's transactions |
+| `GET` | `/api/transactions/income` | Freelancer | Income, monthly series and tax estimate |
+
+---
+
