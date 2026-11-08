@@ -1,0 +1,43 @@
+name: CodeQL Security Scan
+
+# A second, independent layer of static analysis. ESLint checks patterns inside a
+# single file; CodeQL builds a semantic model of the whole codebase and follows
+# data from a source (an HTTP request) to a sink (a database query, a file path,
+# a response), so it finds injection and data-flow problems that a per-file linter
+# cannot see. Results appear under the repository's Security tab.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so newly published query packs are applied to existing code
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyse:
+    name: Analyse JavaScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # security-extended adds lower-severity security queries on top of the
+          # default set; security-and-quality would also add style queries.
+          queries: security-extended
+
+      - name: Run the analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
