@@ -530,3 +530,92 @@ Hardening applied: non-root users in both images, no database port on the host, 
 
 ---
 
+## Security review
+
+How the system addresses the common threat classes.
+
+### Injection (SQL/NoSQL, command, log)
+
+**The threat.** Untrusted input is interpreted as code or as query structure. In MongoDB the classic case is an operator object: `{"email": {"$ne": null}}` submitted as a login email matches the first user in the collection and bypasses authentication entirely.
+
+**Protections.**
+
+* Every key beginning with `$`, and every key containing a dot, is stripped from request bodies before a handler sees it, and the attempt is logged.
+* Mongoose runs with `sanitizeFilter`, which wraps any surviving operator in `$eq`, and with `strictQuery`, which discards fields not in the schema.
+* `express-validator` type-checks every input before use: an email must be a string in email format, an id must be a valid ObjectId, a price must be a number in range. An operator object fails at the type check.
+* The application runs no shell commands and builds no queries by string concatenation.
+* Log entries are JSON-encoded, so newlines and quotes in user input cannot forge additional log lines.
+
+**Verified by:** NoSQL injection tests in `tests/integration/security.test.js` and the Postman "4 Security" folder.
+
+### Cross-site scripting (XSS)
+
+**The threat.** An attacker stores markup in a gig title or description; it executes in another user's browser and steals their token.
+
+**Protectionsfour layers.**
+
+1. **Input:** all HTML tags are stripped with `xss` on the way in, and the contents of `<script>` and `<style>` are discarded entirely.
+2. **Output:** React escapes interpolated values by default. `dangerouslySetInnerHTML` is used nowhere, and `react/no-danger` is an ESLint **error**, so it cannot be reintroduced. `react/jsx-no-script-url` blocks `javascript:` URLs.
+3. **Headers:** the frontend is served with `default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'`. Inline scripts do not execute in the production build. The API's own CSP is `default-src 'none'`, since it returns only JSON.
+4. **Token storage:** the JWT lives in `sessionStorage` and is cleared when the tab closes, limiting the window in which a token exists at all.
+
+**Verified by:** XSS payload tests in the Jest and Postman suites, which assert the stored value no longer contains the tag.
+
+### Authentication weaknesses
+
+**The threats and the answers.**
+
+| Threat | Protection |
+|---|---|
+| Weak passwords | 8–64 characters with upper, lower, number and symbol, enforced at registration |
+| Password theft from the database | bcrypt at 12 rounds; the field is `select: false`, so it is not returned unless explicitly requested, and it is stripped again on serialisation |
+| Brute force from one address | 20 failed attempts per IP per 15 minutes |
+| Brute force spread across addresses | **Account lockout**five failures locks the account for 15 minutes |
+| User enumeration | Identical message for a wrong password and an unknown email, and a dummy bcrypt comparison so the response takes the same time either way |
+| Token forgery | Signature verified with HS256, and the algorithm is pinnedan `alg: none` token is rejected |
+| Token tampering | Any change to the payload invalidates the signature |
+| Token replay after logout | **Server-side revocation**the `jti` is blocklisted and refused on every route |
+| Stolen token used indefinitely | One-hour expiry, enforced server-side and mirrored by an automatic client-side logout |
+| Token for a deleted account | The user is re-read from the database on every request |
+| Secrets in source control | `.env` is git-ignored; the API refuses to start without `JWT_SECRET` rather than using a default |
+
+**Verified by:** the authentication, lockout, revocation and JWT suitesforged, tampered, expired, `none`-algorithm and revoked tokens are each tested.
+
+### Broken access control
+
+**The threat.** A user reaches data or actions that belong to someone else, either by calling an endpoint their role should not reach (vertical) or by changing an id in a URL (horizontal, IDOR).
+
+**Protections.**
+
+* **Vertical:** `authorize(...)` middleware gates by role. Only Freelancers create gigs or view income; only Clients book. Registering as `Admin` is rejected.
+* **The role is read from the database on every request**, never trusted from the token, so a forged `role: "Admin"` claim grants nothing.
+* **Horizontal:** every handler that touches a specific record checks the relationship before acting. Gig update and delete compare the owner; booking reads require the caller to be the client or the freelancer; the income aggregation filters on the authenticated user's id, so a freelancer cannot see another's earnings.
+* **Mass assignment:** gig writes copy only from an `EDITABLE_FIELDS` whitelist, and the owner is always set from the verified token. A `freelancer` field in the request body is ignored.
+* **Price tampering:** the booking amount is read from the gig in the database, never from the request.
+* Every denial is logged as `access.denied.role` or `access.denied.ownership`, with the user and the resource.
+
+**Verified by:** RBAC and ownership tests across the gig, booking and income suitesincluding that a second freelancer cannot update, delete or read another's gig, and sees zero income of their own.
+
+### Other classes addressed
+
+| Threat | Protection |
+|---|---|
+| **Prototype pollution** | `__proto__`, `constructor` and `prototype` dropped from request bodies and from log metadata; found by static analysis, fixed and tested |
+| **Denial of service** | 10 KB body limit, three tiers of rate limiting, bounded numeric and length ranges on every validated input, container health checks and graceful shutdown |
+| **Sensitive data exposure** | `Cache-Control: no-store` on every response; password, token and lockout fields stripped from all serialised output; emails masked in logs |
+| **Security misconfiguration** | `x-powered-by` removed, strict CSP, HSTS, CORS limited to one origin, non-root containers, the database unreachable from the host |
+| **Vulnerable dependencies** | `npm audit` gate in the pipeline; production dependencies audit clean |
+| **Insufficient logging** | Sixteen distinct security event types, separated into their own file, with request IDs for end-to-end tracing |
+
+### Known limitations
+
+Stated plainly rather than left for a marker to find:
+
+* **Self-signed TLS.** Fine for development and assessment; production would need a certificate from a trusted authority.
+* **The JWT is readable by JavaScript.** `sessionStorage` is used so the SPA can send the `Authorization` header. An `HttpOnly` cookie would resist XSS better, at the cost of needing CSRF protection. The XSS defences above, plus a short expiry and server-side revocation, are the compensating controls.
+* **The lockout response confirms an account exists.** A deliberate trade-off, argued under [Additional security features](#additional-security-features).
+* **Rate-limit state is in memory.** Running several API replicas would need a shared store such as Redis.
+* **No email verification or password reset.** Out of scope for the brief.
+
+---
+
